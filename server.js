@@ -5,11 +5,11 @@ const path = require("path");
 const app = express();
 const PORT = 3000;
 
+const dbFilePath = 'db/db.json';
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static("public"));
-
-
 
 app.get('/notes', (req, res) => {
   res.sendFile(path.join(__dirname, "/public/notes.html"));
@@ -17,8 +17,8 @@ app.get('/notes', (req, res) => {
 
 app.get('/api/notes', (req, res) => {
   
-  if (fs.existsSync('db.json')) {
-    fs.readFile('db.json', (err, data) => {
+  if (fs.existsSync(dbFilePath)) {
+    fs.readFile(dbFilePath, (err, data) => {
       if (err) {
         throw err;
       }
@@ -34,47 +34,56 @@ app.post('/api/notes', (req, res) => {
     notes: []
   }
 
-  if (fs.existsSync('db.json')) {
+  if (fs.existsSync(dbFilePath)) {
    
-    fs.readFile('db.json', (err, data) => {
+    fs.readFile(dbFilePath, (err, data) => {
       if (err) {
         throw err;
       }
       let parsedDAta = JSON.parse(data);
-      parsedDAta.notes.push(req.body);
 
-      fs.writeFile('db.json', JSON.stringify(parsedDAta), (err) => {
-        if (err) {
-          throw err;
-        }
-        console.log('File written');
-      })
+      let obj = {
+        title: req.body.title,
+        text: req.body.text,
+        id: parsedDAta.notes.length
+      }
+
+      parsedDAta.notes.push(obj);
+
+      write(parsedDAta);
     });
 
   } else {
-    data.notes.push(req.body);
 
-    fs.appendFile('db.json', JSON.stringify(data), (err) => {
-      if (err) {
-        throw err;
-      }
-      console.log('File written');
-    })
+    let obj = {
+      title: req.body.title,
+      text: req.body.text,
+      id: 0
+    }
+
+    data.notes.push(obj);
+
+    write(data);
   }
 });
 
 app.delete('/api/notes/:id', (req, res) => {
   let id = req.params.id;
-  console.log(id);
-  fs.readFile('db.json', (err, data) => {
+  
+  fs.readFile(dbFilePath, (err, data) => {
     if (err) {
       throw err;
     }
-    let parsedDAta = JSON.parse(data).notes;
-    console.log(parsedDAta);
-    parsedDAta.splice(id,1);
-    console.log(parsedDAta);
+    let parsedDAta = JSON.parse(data);
+
+    parsedDAta.notes.splice(id,1);
     
+    // rewrite the file after resetting all the id's
+    for (let i = 0; i < parsedDAta.notes.length; i++) {
+      parsedDAta.notes[i].id = i;
+    }
+
+    write(parsedDAta);
   });
 
 });
@@ -86,3 +95,12 @@ app.get('*', (req, res) => {
 app.listen(PORT, function() {
   console.log("App listening on PORT " + PORT);
 });
+
+const write = data => {
+  fs.writeFile(dbFilePath, JSON.stringify(data), (err) => {
+    if (err) {
+      throw err;
+    }
+    console.log('File written');
+  });
+}
